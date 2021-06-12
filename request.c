@@ -31,18 +31,17 @@ void requestError(conn_t* conn, mythread_t* pthread, char *cause, char *errnum, 
    Rio_writen(conn->conn_fd, buf, strlen(buf));
    printf("%s", buf);
 
-    double arrival_in_mill =
-            (conn->stat_req_arrival.tv_sec * 1000) + (conn->stat_req_arrival.tv_usec) / 1000;
-    sprintf(buf, "%sStat-req-arrival: %f\r\n", buf, arrival_in_mill);
-    double dispatch_in_mill =
-            (conn->stat_req_dispatch.tv_sec * 1000) + (conn->stat_req_dispatch.tv_usec) / 1000;
-    sprintf(buf, "%sStat-req-dispatch: %f\r\n\r\n", buf,dispatch_in_mill - arrival_in_mill);
-    sprintf(buf, "%sStat-thread-id: %d\r\n", buf, pthread->stat_thread_id);
-    sprintf(buf, "%sStat-thread-count: %d\r\n\r\n", buf , pthread->stat_thread_count);
-    sprintf(buf, "%sStat-thread-static: %d\r\n", buf, pthread->stat_thread_static);
-    sprintf(buf, "%sStat-thread-dynamic: %d\r\n\r\n",buf , pthread->stat_thread_dynamic);
-    Rio_writen(conn->conn_fd, buf, strlen(buf));
-    printf("%s", buf);
+   //double arrival_in_mill = (conn->req_arrival.tv_sec * 1000) + (conn->req_arrival.tv_usec) / 1000;
+   sprintf(buf, "%sStat-req-arrival:: %lu.%06lu\r\n", buf, conn->req_arrival.tv_sec, conn->req_arrival.tv_usec);
+   //double dispatch_in_mill = (conn->req_pickup.tv_sec * 1000) + (conn->req_pickup.tv_usec) / 1000;
+   sprintf(buf, "%sStat-req-dispatch:: %lu.%06lu\r\n\r\n", buf,
+           conn->req_pickup.tv_sec - conn->req_arrival.tv_sec, conn->req_pickup.tv_usec - conn->req_arrival.tv_usec);
+   sprintf(buf, "%sStat-thread-id:: %d\r\n", buf, pthread->thread_id);
+   sprintf(buf, "%sStat-thread-count:: %d\r\n\r\n", buf , pthread->thread_count);
+   sprintf(buf, "%sStat-thread-static:: %d\r\n", buf, pthread->thread_static);
+   sprintf(buf, "%sStat-thread-dynamic:: %d\r\n\r\n",buf , pthread->thread_dynamic);
+   Rio_writen(conn->conn_fd, buf, strlen(buf));
+   printf("%s", buf);
 
    // Write out the content
    Rio_writen(conn->conn_fd, body, strlen(body));
@@ -123,16 +122,15 @@ void requestServeDynamic(conn_t* conn, mythread_t* pthread, char *filename, char
    // The CGI script has to finish writing out the header.
    sprintf(buf, "HTTP/1.0 200 OK\r\n");
    sprintf(buf, "%sServer: OS-HW3 Web Server\r\n", buf);
-    double arrival_in_mill =
-            (conn->stat_req_arrival.tv_sec * 1000) + (conn->stat_req_arrival.tv_usec) / 1000;
-    sprintf(buf, "%sStat-req-arrival: %f\r\n", buf, arrival_in_mill);
-    double dispatch_in_mill =
-            (conn->stat_req_dispatch.tv_sec * 1000) + (conn->stat_req_dispatch.tv_usec) / 1000;
-    sprintf(buf, "%sStat-req-dispatch: %f\r\n\r\n", buf,dispatch_in_mill - arrival_in_mill);
-    sprintf(buf, "%sStat-thread-id: %d\r\n", buf, pthread->stat_thread_id);
-    sprintf(buf, "%sStat-thread-count: %d\r\n\r\n", buf , pthread->stat_thread_count);
-    sprintf(buf, "%sStat-thread-static: %d\r\n", buf, pthread->stat_thread_static);
-    sprintf(buf, "%sStat-thread-dynamic: %d\r\n\r\n",buf , pthread->stat_thread_dynamic);
+   //double arrival_in_mill = (conn->req_arrival.tv_sec * 1000) + (conn->req_arrival.tv_usec) / 1000;
+   sprintf(buf, "%sStat-req-arrival:: %lu.%06lu\r\n", buf, conn->req_arrival.tv_sec, conn->req_arrival.tv_usec);
+   //double dispatch_in_mill = (conn->req_pickup.tv_sec * 1000) + (conn->req_pickup.tv_usec) / 1000;
+   sprintf(buf, "%sStat-req-dispatch:: %lu.%06lu\r\n\r\n", buf,
+           conn->req_pickup.tv_sec - conn->req_arrival.tv_sec, conn->req_pickup.tv_usec - conn->req_arrival.tv_usec);
+   sprintf(buf, "%sStat-thread-id:: %d\r\n", buf, pthread->thread_id);
+   sprintf(buf, "%sStat-thread-count:: %d\r\n\r\n", buf , pthread->thread_count);
+   sprintf(buf, "%sStat-thread-static:: %d\r\n", buf, pthread->thread_static);
+   sprintf(buf, "%sStat-thread-dynamic:: %d\r\n\r\n",buf , pthread->thread_dynamic);
 
    Rio_writen(conn->conn_fd, buf, strlen(buf));
 
@@ -166,16 +164,15 @@ void requestServeStatic(conn_t* conn, mythread_t* pthread, char *filename, int f
    sprintf(buf, "%sServer: OS-HW3 Web Server\r\n", buf);
    sprintf(buf, "%sContent-Length: %d\r\n", buf, filesize);
    sprintf(buf, "%sContent-Type: %s\r\n\r\n", buf, filetype);
-   double arrival_in_mill =
-           (conn->stat_req_arrival.tv_sec * 1000) + (conn->stat_req_arrival.tv_usec) / 1000;
-   sprintf(buf, "%sStat-req-arrival: %f\r\n", buf, arrival_in_mill);
-   double dispatch_in_mill =
-            (conn->stat_req_dispatch.tv_sec * 1000) + (conn->stat_req_dispatch.tv_usec) / 1000;
-   sprintf(buf, "%sStat-req-dispatch: %f\r\n\r\n", buf,dispatch_in_mill - arrival_in_mill);
-   sprintf(buf, "%sStat-thread-id: %d\r\n", buf, pthread->stat_thread_id);
-   sprintf(buf, "%sStat-thread-count: %d\r\n\r\n", buf , pthread->stat_thread_count);
-   sprintf(buf, "%sStat-thread-static: %d\r\n", buf, pthread->stat_thread_static);
-   sprintf(buf, "%sStat-thread-dynamic: %d\r\n\r\n",buf , pthread->stat_thread_dynamic);
+   //double arrival_in_mill = (conn->req_arrival.tv_sec * 1000) + (conn->req_arrival.tv_usec) / 1000;
+   sprintf(buf, "%sStat-req-arrival:: %lu.%06lu\r\n", buf, conn->req_arrival.tv_sec, conn->req_arrival.tv_usec);
+   //double dispatch_in_mill = (conn->req_pickup.tv_sec * 1000) + (conn->req_pickup.tv_usec) / 1000;
+   sprintf(buf, "%sStat-req-dispatch:: %lu.%06lu\r\n\r\n", buf,
+           conn->req_pickup.tv_sec - conn->req_arrival.tv_sec, conn->req_pickup.tv_usec - conn->req_arrival.tv_usec);
+   sprintf(buf, "%sStat-thread-id:: %d\r\n", buf, pthread->thread_id);
+   sprintf(buf, "%sStat-thread-count:: %d\r\n\r\n", buf , pthread->thread_count);
+   sprintf(buf, "%sStat-thread-static:: %d\r\n", buf, pthread->thread_static);
+   sprintf(buf, "%sStat-thread-dynamic:: %d\r\n\r\n",buf , pthread->thread_dynamic);
 
    Rio_writen(conn->conn_fd, buf, strlen(buf));
 
@@ -188,7 +185,7 @@ void requestServeStatic(conn_t* conn, mythread_t* pthread, char *filename, int f
 // handle a request
 void requestHandle(conn_t* conn, mythread_t* pthread)
 {
-    pthread->stat_thread_count++;
+    pthread->thread_count++;
    int is_static;
    struct stat sbuf;
    char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
@@ -218,14 +215,14 @@ void requestHandle(conn_t* conn, mythread_t* pthread)
          requestError(conn, pthread, filename, "403", "Forbidden", "OS-HW3 Server could not read this file");
          return;
       }
-      pthread->stat_thread_static++;
+      pthread->thread_static++;
       requestServeStatic(conn, pthread, filename, sbuf.st_size);
    } else {
       if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {
          requestError(conn, pthread, filename, "403", "Forbidden", "OS-HW3 Server could not run this CGI program");
          return;
       }
-      pthread->stat_thread_dynamic++;
+      pthread->thread_dynamic++;
       requestServeDynamic(conn, pthread, filename, cgiargs);
    }
 }

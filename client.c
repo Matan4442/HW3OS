@@ -22,6 +22,7 @@
  */
 
 #include "segel.h"
+#include <pthread.h>
 
 /*
  * Send an HTTP request for the specified file 
@@ -71,28 +72,94 @@ void clientPrint(int fd)
   }
 }
 
-int main(int argc, char *argv[])
-{
-  char *host, *filename;
-  int port;
-  int clientfd;
+#define THREAD_NUM 10
 
-  if (argc != 4) {
-    fprintf(stderr, "Usage: %s <host> <port> <filename>\n", argv[0]);
-    exit(1);
-  }
+typedef struct Task {
+    int clientfd;
+    char *filename;
+} Task;
 
-  host = argv[1];
-  port = atoi(argv[2]);
-  filename = argv[3];
+Task taskQueue[256];
+int taskCount = 0;
 
-  /* Open a single connection to the specified host and port */
-  clientfd = Open_clientfd(host, port);
-  
-  clientSend(clientfd, filename);
-  clientPrint(clientfd);
-    
-  Close(clientfd);
+pthread_mutex_t CmutexQueue;
+pthread_cond_t CcondQueue;
 
-  exit(0);
+void executeTask(Task *task) {
+    clientSend(task->clientfd, task->filename);
+    clientPrint(task->clientfd);
+    Close(task->clientfd);
 }
+
+void submitTask(Task task) {
+    pthread_mutex_lock(&CmutexQueue);
+    taskQueue[taskCount] = task;
+    taskCount++;
+    pthread_mutex_unlock(&CmutexQueue);
+    pthread_cond_signal(&CcondQueue);
+}
+
+void *startThread(void *args) {
+    while (1) {
+        Task task;
+
+        pthread_mutex_lock(&CmutexQueue);
+        while (taskCount == 0) {
+            pthread_cond_wait(&CcondQueue, &CmutexQueue);
+        }
+
+        task = taskQueue[0];
+        int i;
+        for (i = 0; i < taskCount - 1; i++) {
+            taskQueue[i] = taskQueue[i + 1];
+        }
+        taskCount--;
+        pthread_mutex_unlock(&CmutexQueue);
+        executeTask(&task);
+    }
+    exit(0);
+}
+
+int main(int argc, char *argv[]) {
+    char *host, *file_name;
+    int port;
+    int client_fd;
+
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s <host> <port> <filename>\n", argv[0]);
+        exit(1);
+    }
+
+    host = argv[1];
+    port = atoi(argv[2]);
+    file_name = argv[3];
+
+    pthread_t th[THREAD_NUM];
+    pthread_mutex_init(&CmutexQueue, NULL);
+    pthread_cond_init(&CcondQueue, NULL);
+    for (int i = 0; i < THREAD_NUM; i++) {
+        if (pthread_create(&th[i], NULL, &startThread, NULL) != 0) {
+            perror("Failed to create the thread");
+        }
+    }
+
+    for (int i = 0; i < 300; i++) {
+        /* Open a single connection to the specified host and port */
+
+            client_fd = Open_clientfd(host, port);
+            Task t = {
+                    .clientfd = client_fd,
+                    .filename = file_name};
+            submitTask(t);
+    }
+
+    for (int i = 0; i < THREAD_NUM; i++) {
+        if (pthread_join(th[i], NULL) != 0) {
+            perror("Failed to join the thread");
+        }
+    }
+    pthread_mutex_destroy(&CmutexQueue);
+    pthread_cond_destroy(&CcondQueue);
+    exit(0);
+}
+

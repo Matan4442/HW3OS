@@ -20,17 +20,17 @@ typedef enum {
 
 typedef struct conn_t {
     int conn_fd;
-    struct timeval stat_req_arrival;
-    struct timeval stat_req_dispatch;
+    struct timeval req_arrival;
+    struct timeval req_pickup;
     struct conn_t* next;
 }conn_t;
 
 typedef struct mythread_t {
     pthread_t pthread;
-    int stat_thread_id;
-    int stat_thread_count;
-    int stat_thread_static;
-    int stat_thread_dynamic;
+    int thread_id;
+    int thread_count;
+    int thread_static;
+    int thread_dynamic;
 }mythread_t;
 
 typedef struct threadpool_t {

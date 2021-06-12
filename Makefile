@@ -20,7 +20,7 @@ server: server.o threadpool.o request.o segel.o
 	$(CC) $(CFLAGS) -o server server.o threadpool.o request.o segel.o $(LIBS)
 
 client: client.o segel.o
-	$(CC) $(CFLAGS) -o client client.o segel.o
+	$(CC) $(CFLAGS) -o client client.o segel.o $(LIBS)
 
 output.cgi: output.c
 	$(CC) $(CFLAGS) -o output.cgi output.c

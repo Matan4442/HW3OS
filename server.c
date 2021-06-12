@@ -23,10 +23,10 @@ handling_policy parse_policy(char *arg, handling_policy* policy){
 	}if (strcmp(arg,"dt") == 0)
 	{
 		*policy = drop_tail;
-	}if (strcmp(arg,"block") == 0)
+	}if (strcmp(arg,"dh") == 0)
 	{
 		*policy = drop_head;
-	}if (strcmp(arg,"block") == 0)
+	}if (strcmp(arg,"random") == 0)
 	{
 		*policy = random_drop;
 	}
