@@ -26,8 +26,8 @@ threadpool_t *threadpool_create(int num_of_threads, int size_of_queue,
 	pool->policy = policy;
     pool->waiting_conn = pool->handeled_conn = 0;
     pool->threads = (mythread_t **)malloc(sizeof(mythread_t*) * num_of_threads);
-    pool->queue_head = pool->queue_tail = NULL;
-    for (int i = 0; i < num_of_threads; ++i) {
+    pool->queue_head = NULL;
+    for (int i = 0; i < num_of_threads ; ++i) {
         pool->threads[i] = (mythread_t *)malloc(sizeof(mythread_t));
         pool->threads[i]->thread_id = i;
         pool->threads[i]->thread_count = pool->threads[i]->thread_dynamic =
@@ -46,16 +46,12 @@ threadpool_t *threadpool_create(int num_of_threads, int size_of_queue,
         arg->thread_id = i;
         if(pthread_create(&(pool->threads[i]->pthread), NULL,
                           thread_do, (void*)arg) != 0) {
-            threadpool_destroy(pool);
             return NULL;
         }
     }
     return pool;
 
  err:
-    if(pool) {
-        threadpool_free(pool);
-    }
     return NULL;
 }
 
@@ -71,46 +67,33 @@ int listLen(conn_t* head){
 
 int randRemove(threadpool_t *pool){
     int index = rand() % pool->waiting_conn;
-    printf("randomdrop - removing conn number %d out of %d conn waiting\n",index,  pool->waiting_conn);
-    printf("list lens is %d, needs to be %d \n", listLen(pool->queue_head),  pool->waiting_conn);
     conn_t* temp;
     if (index == 0){
         temp = pool->queue_head;
-        if (pool->queue_head == NULL){
-            printf("error1\n");
-            exit(0);
-        }
         pool->queue_head = pool->queue_head->next;
         free(temp);
     }
     else{ //index > 0
         conn_t* curr = pool->queue_head;
-        while(index-1 > 0) {
+        conn_t* prev = NULL;
+        for (int i = 0; i < index; ++i) {
+            prev = curr;
             curr = curr->next;
-            index --;
         }
-        temp = curr->next;
-        if (curr->next == NULL){
-            printf("error2\n");
-            exit(0);
-        }
-        curr->next = curr->next->next;
-        free(temp);
+        prev->next = curr->next;
+        free(curr);
     }
     pool->waiting_conn --;
-    printf("randomdrop - dropped conn, now %d conn \n", pool->waiting_conn);
     return 0;
 }
 
 int randomDrop(threadpool_t *pool)
 {
-    printf("randomdrop: started with %d waiting conn, list len is %d conn\n" , pool->waiting_conn, listLen(pool->queue_head));
     int size = pool->waiting_conn;
     for (int i = 0; i < size / 4; i++) {
         if(randRemove(pool) == -1)
             return -1;
     }
-    printf("randomdrop: finished with %d waiting conn, list len is %d conn\n" , pool->waiting_conn, listLen(pool->queue_head));
     return 0;
 }
 
@@ -121,7 +104,6 @@ int threadpool_add(threadpool_t *pool, int connfd) {
     if (pthread_mutex_lock(&(pool->lock)) != 0) {
         return threadpool_lock_failure;
     }
-    printf("inserting connection\n");
     conn_t *conn = (conn_t *) malloc(sizeof(conn_t));
     conn->conn_fd = connfd;
     conn->next = NULL;
@@ -131,9 +113,8 @@ int threadpool_add(threadpool_t *pool, int connfd) {
     if (pool->waiting_conn + pool->handeled_conn >= pool->size_of_queue) {
         switch (pool->policy) {
             case block:
-                while (pool->waiting_conn + pool->handeled_conn >= pool->size_of_queue)
+                if (pool->waiting_conn + pool->handeled_conn >= pool->size_of_queue)
                 {
-                    printf("blocked\n");
                     pthread_cond_wait(&(pool->notify_notfull), &(pool->lock));
                 }
                 break;
@@ -148,13 +129,11 @@ int threadpool_add(threadpool_t *pool, int connfd) {
                 if (pool->waiting_conn == 0){ //in case all jobs are working
                     Close(connfd);
                     free(conn);
-                    printf("queue is full with running connections - dropping new\n");
                     if (pthread_mutex_unlock(&pool->lock) != 0) {
                         return threadpool_lock_failure;
                     }
                     return 0;
                 }
-                printf("dropping head\n");
                 Close(pool->queue_head->conn_fd);
                 conn_t* temp = pool->queue_head;
                 pool->queue_head = pool->queue_head->next;
@@ -165,7 +144,6 @@ int threadpool_add(threadpool_t *pool, int connfd) {
                 if (pool->waiting_conn == 0){ //in case all jobs are working
                     Close(connfd);
                     free(conn);
-                    printf("randomdrop: queue is full with running connections - not inserting\n");
                     if (pthread_mutex_unlock(&pool->lock) != 0) {
                         return threadpool_lock_failure;
                     }
@@ -175,20 +153,20 @@ int threadpool_add(threadpool_t *pool, int connfd) {
                     return threadpool_invalid;
                 }
                 break;
-            default:
+            invalid:
                 return threadpool_invalid;
         }
     }
 
-    //printf("list lens is %d, needs to be %d - before adding to queue \n", listLen(pool->queue_head),  pool->waiting_conn);
     if(pool->queue_head == NULL){ //queue empty
-        //printf("queue is empty, check waiting conn is %d, needs to be 0\n" ,pool->waiting_conn);
-        pool->queue_head = pool->queue_tail = conn;
+        pool->queue_head = conn;
     }
     else { // queue not empty
-        //printf("queue not empty, waiting conn is %d\n" ,pool->waiting_conn);
-        pool->queue_tail->next = conn;
-        pool->queue_tail = pool->queue_tail->next;
+        conn_t* temp = pool->queue_head;
+        while(temp->next) {
+            temp = temp->next;
+        }
+        temp->next = conn;
     }
     pool->waiting_conn ++;
 
@@ -196,59 +174,11 @@ int threadpool_add(threadpool_t *pool, int connfd) {
         return threadpool_lock_failure;
     }
 
-    //printf("added client req to pool\n");
-    //printf("list lens is %d, needs to be %d - after adding to queue \n", listLen(pool->queue_head),  pool->waiting_conn);
-
     if (pthread_mutex_unlock(&pool->lock) != 0) {
         return threadpool_lock_failure;
     }
     return 0;
 }
-
-int threadpool_destroy(threadpool_t *pool)
-{
-    int i, err = 0;
-    if(pool == NULL) {
-        return threadpool_invalid;
-    }
-    if(pthread_mutex_lock(&(pool->lock)) != 0) {
-        return threadpool_lock_failure;
-    }
-	if((pthread_cond_broadcast(&(pool->notify_notempty)) != 0) ||
-		(pthread_cond_broadcast(&(pool->notify_notfull)) != 0) ||
-	   (pthread_mutex_unlock(&(pool->lock)) != 0)) {
-		err = threadpool_lock_failure;
-	}
-	for(i = 0; i < pool->num_of_threads; i++) {
-		if(pthread_join(pool->threads[i]->pthread, NULL) != 0) {
-			err = threadpool_thread_failure;
-		}
-	}
-    if(!err) {
-        threadpool_free(pool);
-    }
-    return err;
-}
-
-int threadpool_free(threadpool_t *pool)
-{
-    if(pool == NULL) {
-        return -1;
-    }
-    /* Did we manage to allocate ? */
-    if(pool->threads) {
-        free(pool->threads);
-        /* Because we allocate pool->threads after initializing the
-           mutex and condition variable, we're sure they're
-           initialized. Let's lock the mutex just in case. */
-        pthread_mutex_lock(&(pool->lock));
-        pthread_mutex_destroy(&(pool->lock));
-        pthread_cond_destroy(&(pool->notify_notempty));
-    }
-    free(pool);    
-    return 0;
-}
-
 
 static void *thread_do(void* args)
 {
@@ -260,13 +190,8 @@ static void *thread_do(void* args)
         while(pool->waiting_conn == 0) {
             pthread_cond_wait(&(pool->notify_notempty), &(pool->lock));
         }
-        //printf("thread id %d is taking conn, %d waiting conn\n", thread_id, pool->waiting_conn) ;
         //printf("list lens is %d, needs to be %d - before taking from queue \n", listLen(pool->queue_head),  pool->waiting_conn);
         conn = pool->queue_head;
-        if (pool->queue_head == NULL){
-            printf("pool->queue_head is NULL\n");
-            exit(0);
-        }
         pool->queue_head = pool->queue_head->next;
         pool->waiting_conn--;
 		pool->handeled_conn++;
@@ -274,7 +199,6 @@ static void *thread_do(void* args)
         pthread_mutex_unlock(&(pool->lock));
         gettimeofday(&conn->req_pickup, NULL);
         requestHandle(conn, pool->threads[thread_id]);
-        sleep(2);
         pthread_mutex_lock(&(pool->lock));
 		pool->handeled_conn--;
 		pthread_cond_signal(&(pool->notify_notfull));

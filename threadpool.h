@@ -41,7 +41,6 @@ typedef struct threadpool_t {
     int num_of_threads;
     int size_of_queue;
     conn_t* queue_head;
-    conn_t* queue_tail;
     int waiting_conn;
     int handeled_conn;
     handling_policy policy;
@@ -52,8 +51,5 @@ threadpool_t *threadpool_create(int num_of_threads, int size_of_queue,
 
 int threadpool_add(threadpool_t *pool, int connfd);
 
-int threadpool_destroy(threadpool_t *pool);
-
-int threadpool_free(threadpool_t *pool);
 
 #endif //HW3OS_THREADPOOL_H
