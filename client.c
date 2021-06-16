@@ -72,7 +72,7 @@ void clientPrint(int fd)
   }
 }
 
-#define THREAD_NUM 10
+#define THREAD_NUM 1
 
 typedef struct Task {
     int clientfd;
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    for (int i = 0; i < 300; i++) {
+    for (int i = 0; i < 1; i++) {
         /* Open a single connection to the specified host and port */
 
             client_fd = Open_clientfd(host, port);

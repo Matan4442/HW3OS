@@ -89,6 +89,7 @@ int randRemove(threadpool_t *pool){
 
 int randomDrop(threadpool_t *pool)
 {
+    srand(time(0));
     int size = pool->waiting_conn;
     for (int i = 0; i < size / 4; i++) {
         if(randRemove(pool) == -1)
@@ -153,7 +154,7 @@ int threadpool_add(threadpool_t *pool, int connfd) {
                     return threadpool_invalid;
                 }
                 break;
-            invalid:
+            default:
                 return threadpool_invalid;
         }
     }

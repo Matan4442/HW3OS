@@ -21,15 +21,15 @@ void requestError(conn_t* conn, mythread_t* pthread, char *cause, char *errnum, 
    // Write out the header information for this response
    sprintf(buf, "HTTP/1.0 %s %s\r\n", errnum, shortmsg);
    Rio_writen(conn->conn_fd, buf, strlen(buf));
-   printf("%s", buf);
+   //printf("%s", buf);
 
    sprintf(buf, "Content-Type: text/html\r\n");
    Rio_writen(conn->conn_fd, buf, strlen(buf));
-   printf("%s", buf);
+   //printf("%s", buf);
 
-   sprintf(buf, "Content-Length: %lu\r\n\r\n", strlen(body));
+   sprintf(buf, "Content-Length: %lu\r\n", strlen(body));
    Rio_writen(conn->conn_fd, buf, strlen(buf));
-   printf("%s", buf);
+   //printf("%s", buf);
 
    sprintf(buf, "%sStat-Req-Arrival:: %lu.%06lu\r\n", buf, conn->req_arrival.tv_sec, conn->req_arrival.tv_usec);
    sprintf(buf, "%sStat-Req-Dispatch:: %lu.%06lu\r\n", buf,
@@ -39,11 +39,11 @@ void requestError(conn_t* conn, mythread_t* pthread, char *cause, char *errnum, 
    sprintf(buf, "%sStat-Thread-Static:: %d\r\n", buf, pthread->thread_static);
    sprintf(buf, "%sStat-Thread-Dynamic:: %d\r\n\r\n",buf , pthread->thread_dynamic);
    Rio_writen(conn->conn_fd, buf, strlen(buf));
-   printf("%s", buf);
+   //printf("%s", buf);
 
    // Write out the content
    Rio_writen(conn->conn_fd, body, strlen(body));
-   printf("%s", body);
+   //printf("%s", body);
 
 }
 
@@ -139,6 +139,7 @@ void requestServeDynamic(conn_t* conn, mythread_t* pthread, char *filename, char
       Execve(filename, emptylist, environ);
    }
    Wait(NULL);
+   //Waitpid(NULL,0);
 }
 
 
@@ -160,8 +161,7 @@ void requestServeStatic(conn_t* conn, mythread_t* pthread, char *filename, int f
    sprintf(buf, "HTTP/1.0 200 OK\r\n");
    sprintf(buf, "%sServer: OS-HW3 Web Server\r\n", buf);
    sprintf(buf, "%sContent-Length: %d\r\n", buf, filesize);
-   sprintf(buf, "%sContent-Type: %s\r\n\r\n", buf, filetype);
-
+   sprintf(buf, "%sContent-Type: %s\r\n", buf, filetype);
     sprintf(buf, "%sStat-Req-Arrival:: %lu.%06lu\r\n", buf, conn->req_arrival.tv_sec, conn->req_arrival.tv_usec);
     sprintf(buf, "%sStat-Req-Dispatch:: %lu.%06lu\r\n", buf,
             conn->req_pickup.tv_sec - conn->req_arrival.tv_sec, conn->req_pickup.tv_usec - conn->req_arrival.tv_usec);
