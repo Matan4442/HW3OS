@@ -58,7 +58,8 @@ int main(int argc, char *argv[])
     while (1) {
         clientlen = sizeof(clientaddr);
         connfd = Accept(listenfd, (SA *)&clientaddr, (socklen_t *) &clientlen);
-        if (threadpool_add(thpool,connfd) == threadpool_invalid){
+        if (threadpool_add(thpool,connfd) != 0){
+            printf("error");
             return -1;
         }
     }

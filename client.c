@@ -72,7 +72,7 @@ void clientPrint(int fd)
   }
 }
 
-#define THREAD_NUM 1
+#define THREAD_NUM 5
 
 typedef struct Task {
     int clientfd;
@@ -143,14 +143,23 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 40; i++) {
         /* Open a single connection to the specified host and port */
-
+        if (i != 39){
             client_fd = Open_clientfd(host, port);
             Task t = {
                     .clientfd = client_fd,
                     .filename = file_name};
             submitTask(t);
+        }
+        else
+        {
+            client_fd = Open_clientfd(host, port);
+            Task t = {
+                    .clientfd = client_fd,
+                    .filename = "test.html"};
+            submitTask(t);
+        }
     }
 
     for (int i = 0; i < THREAD_NUM; i++) {

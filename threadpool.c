@@ -2,9 +2,9 @@
 #include "threadpool.h"
 #include <stdlib.h>
 #include "segel.h"
-
+int finished = 0;
+int inserted = 0;
 static void *thread_do(void* args);
-
  typedef struct args{
     threadpool_t* pool;
     int thread_id;
@@ -55,21 +55,13 @@ threadpool_t *threadpool_create(int num_of_threads, int size_of_queue,
     return NULL;
 }
 
-int listLen(conn_t* head){
-    conn_t* temp = head;
-    int count = 0;
-    while(temp){
-        count ++;
-        temp = temp->next;
-    }
-    return count;
-}
-
 int randRemove(threadpool_t *pool){
     int index = rand() % pool->waiting_conn;
     conn_t* temp;
     if (index == 0){
         temp = pool->queue_head;
+        //printf("closing  %d\n",  temp->conn_fd);
+        Close(temp->conn_fd);
         pool->queue_head = pool->queue_head->next;
         free(temp);
     }
@@ -81,6 +73,8 @@ int randRemove(threadpool_t *pool){
             curr = curr->next;
         }
         prev->next = curr->next;
+        //printf("closing  %d\n",  curr->conn_fd);
+        Close(curr->conn_fd);
         free(curr);
     }
     pool->waiting_conn --;
@@ -89,9 +83,10 @@ int randRemove(threadpool_t *pool){
 
 int randomDrop(threadpool_t *pool)
 {
-    srand(time(0));
-    int size = pool->waiting_conn;
+    srand(time(NULL));
+    int size = ceil((double)pool->waiting_conn/4)+1e-9;
     for (int i = 0; i < size / 4; i++) {
+        //printf("dropped req number %d\n", ++finished);
         if(randRemove(pool) == -1)
             return -1;
     }
@@ -99,82 +94,67 @@ int randomDrop(threadpool_t *pool)
 }
 
 int threadpool_add(threadpool_t *pool, int connfd) {
+
     if (pool == NULL) {
         return threadpool_invalid;
     }
     if (pthread_mutex_lock(&(pool->lock)) != 0) {
         return threadpool_lock_failure;
     }
-    conn_t *conn = (conn_t *) malloc(sizeof(conn_t));
-    conn->conn_fd = connfd;
-    conn->next = NULL;
-    if (gettimeofday(&(conn->req_arrival), NULL) != 0) {
+    struct timeval curr_time;
+    if (gettimeofday(&curr_time, NULL) != 0) {
         return threadpool_invalid;
     }
+    int status = 0;
+    //printf("inserting %d\n",  ++inserted);
     if (pool->waiting_conn + pool->handeled_conn >= pool->size_of_queue) {
-        switch (pool->policy) {
-            case block:
-                if (pool->waiting_conn + pool->handeled_conn >= pool->size_of_queue)
-                {
-                    pthread_cond_wait(&(pool->notify_notfull), &(pool->lock));
-                }
-                break;
-            case drop_tail:
-                Close(connfd);
-                free(conn);
-                if (pthread_mutex_unlock(&pool->lock) != 0) {
-                    return threadpool_lock_failure;
-                }
-                return 0;
-            case drop_head:
-                if (pool->waiting_conn == 0){ //in case all jobs are working
-                    Close(connfd);
-                    free(conn);
-                    if (pthread_mutex_unlock(&pool->lock) != 0) {
-                        return threadpool_lock_failure;
-                    }
-                    return 0;
-                }
-                Close(pool->queue_head->conn_fd);
-                conn_t* temp = pool->queue_head;
-                pool->queue_head = pool->queue_head->next;
-                free(temp);
-                pool->waiting_conn--;
-                break;
-            case random_drop:
-                if (pool->waiting_conn == 0){ //in case all jobs are working
-                    Close(connfd);
-                    free(conn);
-                    if (pthread_mutex_unlock(&pool->lock) != 0) {
-                        return threadpool_lock_failure;
-                    }
-                    return 0;
-                }
-                if (randomDrop(pool) == -1){
-                    return threadpool_invalid;
-                }
-                break;
-            default:
+        if (pool->policy == block) {
+            if (pool->waiting_conn + pool->handeled_conn >= pool->size_of_queue) {
+                pthread_cond_wait(&(pool->notify_notfull), &(pool->lock));
+            }
+            status = 0;
+        } else if (pool->policy == drop_head && pool->waiting_conn > 0) {
+            //printf("closing %d", pool->queue_head->conn_fd);
+            //printf("dropped req number %d\n", ++finished);
+            Close(pool->queue_head->conn_fd);
+            conn_t *temp = pool->queue_head;
+            pool->queue_head = pool->queue_head->next;
+            free(temp);
+            pool->waiting_conn--;
+            status = 0;
+        } else if (pool->policy == drop_tail ||
+            ((pool->policy == drop_head ||pool->policy == random_drop) && pool->waiting_conn == 0)) {
+            //printf("dropped req number %d\n", ++finished);
+            //printf("closing %d\n", connfd);
+            Close(connfd);
+            status = 1;
+        } else {
+            if (randomDrop(pool) == -1) {
                 return threadpool_invalid;
+            }
+            status = 0;
         }
     }
-
-    if(pool->queue_head == NULL){ //queue empty
-        pool->queue_head = conn;
-    }
-    else { // queue not empty
-        conn_t* temp = pool->queue_head;
-        while(temp->next) {
-            temp = temp->next;
+    if (status == 0){
+        conn_t *conn = (conn_t *) malloc(sizeof(conn_t));
+        conn->conn_fd = connfd;
+        conn->req_arrival = curr_time;
+        conn->next = NULL;
+        if(pool->queue_head == NULL){ //queue empty
+            pool->queue_head = conn;
         }
-        temp->next = conn;
+        else { // queue not empty
+            conn_t* temp = pool->queue_head;
+            while(temp->next) {
+                temp = temp->next;
+            }
+            temp->next = conn;
+        }
+        pool->waiting_conn ++;
     }
-    pool->waiting_conn ++;
-
     if (pthread_cond_signal(&(pool->notify_notempty)) != 0) {
         return threadpool_lock_failure;
     }
-
     if (pthread_mutex_unlock(&pool->lock) != 0) {
         return threadpool_lock_failure;
     }
@@ -203,7 +183,9 @@ static void *thread_do(void* args)
         pthread_mutex_lock(&(pool->lock));
 		pool->handeled_conn--;
 		pthread_cond_signal(&(pool->notify_notfull));
-		pthread_mutex_unlock(&(pool->lock));
+        pthread_mutex_unlock(&(pool->lock));
+        //printf("closing %d\n", conn->conn_fd);
+        //printf("finished req num %d\n", ++finished);
 		Close(conn->conn_fd);
         free(conn);
     }

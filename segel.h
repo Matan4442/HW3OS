@@ -66,7 +66,7 @@ void app_error(char *msg);
 /* Process control wrappers */
 pid_t Fork(void);
 void Execve(const char *filename, char *const argv[], char *const envp[]);
-pid_t Wait(int *status);
+pid_t Waitpid(pid_t pid, int *status, int options);
 
 int Gethostname(char *name, size_t len) ;
 int Setenv(const char *name, const char *value, int overwrite);

@@ -72,11 +72,9 @@ void Execve(const char *filename, char *const argv[], char *const envp[])
 }
 
 /* $begin wait */
-pid_t Wait(int *status) 
+pid_t Waitpid(pid_t pid, int *status, int options)
 {
-    pid_t pid;
-
-    if ((pid  = wait(status)) < 0)
+    if ((pid  = waitpid(pid,status,options)) < 0)
         unix_error("Wait error");
     return pid;
 }
