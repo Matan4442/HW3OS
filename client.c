@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    for (int i = 0; i < 40; i++) {
+    for (int i = 0; i < 1; i++) {
         /* Open a single connection to the specified host and port */
         if (i != 39){
             client_fd = Open_clientfd(host, port);

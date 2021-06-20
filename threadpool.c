@@ -85,7 +85,7 @@ int randomDrop(threadpool_t *pool)
 {
     srand(time(NULL));
     int size = ceil((double)pool->waiting_conn/4)+1e-9;
-    for (int i = 0; i < size / 4; i++) {
+    for (int i = 0; i < size; i++) {
         //printf("dropped req number %d\n", ++finished);
         if(randRemove(pool) == -1)
             return -1;

@@ -28,7 +28,7 @@ void requestError(conn_t* conn, mythread_t* pthread, char *cause, char *errnum, 
    //printf("%s", buf);
 
    sprintf(buf, "Content-Length: %lu\r\n", strlen(body));
-   Rio_writen(conn->conn_fd, buf, strlen(buf));
+   //Rio_writen(conn->conn_fd, buf, strlen(buf));
    //printf("%s", buf);
 
    sprintf(buf, "%sStat-Req-Arrival:: %lu.%06lu\r\n", buf, conn->req_arrival.tv_sec, conn->req_arrival.tv_usec);
@@ -131,7 +131,7 @@ void requestServeDynamic(conn_t* conn, mythread_t* pthread, char *filename, char
 
    Rio_writen(conn->conn_fd, buf, strlen(buf));
     int pid = Fork();
-   if (pid) {
+   if (pid == 0) {
       /* Child process */
       Setenv("QUERY_STRING", cgiargs, 1);
       /* When the CGI process writes to stdout, it will instead go to the socket */
